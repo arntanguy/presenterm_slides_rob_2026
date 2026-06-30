@@ -1,8 +1,57 @@
 ---
 title: "Dévelopements et déploiements reproductibles (Nix)"
 # sub_title: 
-author: Arnaud TANGUY - CDD BIATSS - Appui a la recherche 
+author: Arnaud TANGUY - CDD BIATSS - Appui à la recherche - LIRMM
 ---
+
+
+<!-- alignment: center -->
+<!-- jump_to_middle -->
+<!-- font_size: 4 -->
+Ça fonctionne sur ma machine ! 
+<!-- end_slide -->
+
+
+<!-- alignment: center -->
+<!-- new_lines: 5 -->
+<!-- font_size: 4 -->
+Tester mes changements? 
+<!-- font_size: 3 -->
+T'es sûr ?
+<!-- new_lines: 1 -->
+<!-- font_size: 1 -->
+Installe ça¸ ça, ça et ça aussi, ah et pour ça compile il te faut x,y,z!
+<!-- font_size: 1 -->
+<!-- new_lines: 2 -->
+Et ça met 30mn à compiler
+<!-- end_slide -->
+
+<!-- alignment: center -->
+<!-- new_lines: 7 -->
+<!-- font_size: 4 -->
+Ça n'a pas fonctionné?
+<!-- font_size: 3 -->
+Ah, mais t'es sous Ubuntu 26?
+<!-- font_size: 2 -->
+Moi je suis sous 20 depuis le début de ma thèse
+<!-- font_size: 1 -->
+Mais surtout j'y touche pas, ça fonctionne comme ça !
+<!-- end_slide -->
+
+<!-- alignment: center -->
+<!-- new_lines: 7 -->
+<!-- font_size: 4 -->
+Nix 
+<!-- font_size: 3 -->
+- Déclaratif
+- Reproductible
+- Rapide : cache binaire
+- Linux, MacOS, Windows (WSL2)
+
+
+<!-- end_slide -->
+
+
 
 <!-- jump_to_middle -->
 <!-- alignment: center -->
@@ -16,7 +65,17 @@ author: Arnaud TANGUY - CDD BIATSS - Appui a la recherche
 
 <!-- end_slide -->
 
+<!-- alignment: center -->
+<!-- new_lines: 3 -->
+<!-- font_size: 3 -->
+Nix c'est 4 commandes!
+
+<!-- font_size: 1 -->
+<!-- alignment: left -->
 # nix run 
+
+
+<!-- font_size: 1 -->
 
 ```bash +exec
 echo "4 commandes: run, shell, build devel" | nix run nixpkgs#cowsay
@@ -24,7 +83,8 @@ echo "4 commandes: run, shell, build devel" | nix run nixpkgs#cowsay
 
 <!-- end_slide -->
 
-# Et si on exécutait cette présentation ?
+# nix run 
+## Et si on exécutait cette présentation ?
 
 ```bash +exec +acquire_terminal
 nix run .#rob_2026
@@ -69,17 +129,41 @@ ls -lR `nix build github:jrl-umi3218/SpaceVecAlg/pull/74/head#spacevecalg --prin
 
 <!-- end_slide -->
 
+
+<!-- jump_to_middle -->
+<!-- alignment: center -->
+<!-- font_size: 2 -->
+> /nix/store/c5irr3v07il3dsqr6zikkszg29n3if6f-spacevecalg-nanobind-1.2.9
+<!-- font_size: 4 -->
+???
+ 
+<!-- end_slide -->
+
+<!-- new_lines: 3 -->
+```bash +exec
+ls /nix/store | rg 'mc-rtc-2.14.1$'
+```
+
+<!-- end_slide -->
+
 # nix develop
 ## Et si on codais?
 
 ```bash
+# Clone code
 nix shell nixpkgs#gh # oops, il nous manque l'outil cli de github!
 gh login
 gh repo clone jrl-umi3218/SpaceVecAlg
 gh pr checkout 74
+
+# Environnement avec toutes les dépendences
 nix develop .#spacevecalg
+
+# On compile
 cmake -B build $cmakeFlags
 cmake --build build
+
+# On modifie, on exécute
 export PYTHONPATH="$PWD/build/lib/site-packages:$PYTHONPATH" # set python path for dev
 python
 import sva
@@ -95,6 +179,17 @@ kitty sh -c '
   nix develop github:mc-rtc/nixpkgs#mc-rtc-superbuild-full
 '
 ```
+
+Dans ce terminal:
+- mc_rtc est disponible
+- avec toutes ses dépendences
+- et tous les plugins définis dans la configuration pour `mc-rtc-superbuild-full`:
+    - robots: tous les robots publics : `Panda`, `UR10`, `JVRC1`, etc
+    - plugins: ROS
+
+Exécuter avec:
+- `mc-rtc-magnum` : standalone visualization
+- `mc_rtc_ticker` : controller 
 
 <!-- end_slide -->
 
@@ -116,7 +211,9 @@ kitty sh -c '
 
 <!-- end_slide -->
 
-# ANR Rolkneematics
+# nix develop
+## Changement de projet ? 
+### ANR Rolkneematics
 
 ```bash +exec +acquire_terminal
 kitty sh -c '
@@ -128,6 +225,12 @@ kitty sh -c '
 ```
 
 <!-- end_slide -->
+
+<!-- new_lines: 3 -->
+<!-- font_size: 4 -->
+C'est trop compliqué à retenir !
+
+<!-- font_size: 1 -->
 
 # Direnv
 
@@ -152,6 +255,10 @@ kitty --directory ~/nix-envs
 <!-- alignment: center -->
 <!-- font_size: 4 -->
 Fonctionnement
+
+<!-- font_size: 2 -->
+> Workshop semaine du 13 juillet !
+> 1/2 journée
 
 <!-- end_slide -->
 
@@ -237,10 +344,14 @@ stdenv.mkDerivation {
   - un overlay pour les exposer
   - en CI: build et push un cache binaire de toutes les dérivations
 
+> Sait compiler et installer une version par défaut de tous les projets
+
 - puis chaque repo (ex. `SpaceVecAlg`) modifie les dérivations pour:
   - compiler depuis les dernières sources
   - tester des changements (ex: bindings python)
   - en CI: build et push dans le cache binaire de la dernière version
+
+> Adapte le packaging par défaut aux besoins spécifiques du projet 
 
 <!-- end_slide -->
 

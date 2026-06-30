@@ -19,11 +19,19 @@
         rosDistros = [ ];
         packages = {
           rob_2026 =
-            { stdenv, presenterm, ... }:
+            {
+              stdenv,
+              presenterm,
+              kitty,
+              ...
+            }:
             stdenv.mkDerivation {
               name = "rob_2026";
               version = "1.0.0";
-              nativeBuildInputs = [ presenterm ];
+              nativeBuildInputs = [
+                presenterm
+                kitty
+              ];
               src = lib.cleanSource ./.;
               installPhase = ''
                 # 1. Create the output directory structure
