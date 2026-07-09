@@ -5,11 +5,109 @@ sub_title: "Wednesday, July 15 2026"
 author: Arnaud TANGUY - CDD BIATSS - Appui à la recherche - LIRMM
 ---
 
+<!-- alignment: center -->
+<!-- jump_to_middle -->
+<!-- font_size: 4 -->
+It works on my machine!
+<!-- end_slide -->
+
+<!-- font_size: 4 -->
+Does it though?
+<!-- font_size: 2 -->
+<!-- incremental_lists: true -->
+* Maybe today.
+  *  Will it tomorrow?
+* Do you know how it was installed?
+  * `apt`, `snap`, `rpm`, from `source`...
+  * which `apt` repository though?
+    * `ubuntu`, `cutom ppa`, ...
+* Do you know what it depends on?
+  * system version installed through `apt`?
+  * another version on your system
+    * maybe built from source?
+* What if you want to upgrade your system?
+<!-- incremental_lists: false -->
+<!-- end_slide -->
+
+<!-- alignment: left -->
+<!-- font_size: 4 -->
+# Can you share it?
+<!-- font_size: 2 -->
+<!-- incremental_lists: true -->
+## Here is a link to a repository with my code 
+* and here is a `README.md` file
+* that might be up to date
+* well you don't really know why it works for you...
+* ... can you even write the `README.md`?
+## What if you have more than one package?
+* share links to all of them
+* maybe you have a `README.md` to say in which order to build
+<!-- incremental_lists: false -->
+<!-- end_slide -->
 
 <!-- alignment: center -->
 <!-- jump_to_middle -->
 <!-- font_size: 4 -->
-Ça fonctionne sur ma machine ! 
+Maybe it works.
+<!-- end_slide -->
+
+<!-- alignment: center -->
+<!-- jump_to_middle -->
+<!-- font_size: 4 -->
+But it's painful.
+<!-- end_slide -->
+
+<!-- alignment: left -->
+<!-- font_size: 4 -->
+# Maybe you tried to do things right
+<!-- font_size: 2 -->
+<!-- incremental_lists: true -->
+## You made `debian packages`
+* did you? congrats ! 
+* no really, they're painful to make.
+* People can do `sudo apt install your-awesome-code`
+<!-- new_lines: 2 -->
+## It's a library, other projects depend on it.
+* great, maybe that's enough
+* **BUT**:
+  * it only works on ubuntu
+  * `your-awesome-code` depends on other system packages
+    * do you know what `apt update` will do?
+      * hopefully it still works, everything is API/ABI compatible
+        * it should, but that's convention 
+        * if not - your robot it's on the floor, broken
+<!-- incremental_lists: false -->
+<!-- end_slide -->
+
+<!-- alignment: left -->
+<!-- font_size: 4 -->
+# Now... 
+<!-- font_size: 2 -->
+<!-- incremental_lists: true -->
+## Your colleague wants a different version 
+* Make a new package?
+  * Sure
+  * But he also has projects that depend on the official version
+  * How do you install both?
+* Build from source, under another install tree?
+  * It would work
+  * But you now have to make sure your build system picks up the right dependency
+  * manually
+<!-- incremental_lists: false -->
+<!-- end_slide -->
+
+
+
+<!-- alignment: left -->
+<!-- font_size: 4 -->
+# Nix to the rescue 
+<!-- font_size: 2 -->
+Nix is a purely functional declarative package manager. 
+<!-- incremental_lists: true -->
+<!-- font_size: 2 -->
+- **Declarative**: specify your dependencies explicitely
+
+<!-- incremental_lists: false -->
 <!-- end_slide -->
 
 
