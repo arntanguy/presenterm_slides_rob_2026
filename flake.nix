@@ -21,7 +21,7 @@
           stdenv.mkDerivation {
             name = slideName;
             version = "1.0.0";
-            outputs = [ "out" ] ++ lib.optional buildHtml [ "html" ];
+            outputs = [ "out" ] ++ lib.optional buildHtml "html";
             nativeBuildInputs = [
               presenterm
               kitty
@@ -39,8 +39,6 @@
             ''
             + lib.optionalString buildHtml ''
               mkdir -p $html
-              export COLUMNS=120
-              export LINES=40
               ${presenterm}/bin/presenterm --export-html -c config.yaml ./${slideName}/slides.md
               cp ./${slideName}/slides.html $html/ || true
             '';
@@ -58,10 +56,60 @@
         };
 
         allPackages = builtins.foldl' (acc: slideName: acc // makeBothPackages slideName) { } slideNames;
+
+        # Collect all html outputs and generate index.html
+        slidesHtml =
+          {
+            stdenv,
+            lib,
+            presenterm,
+            kitty,
+            ...
+          }:
+          stdenv.mkDerivation {
+            name = "slides-html";
+            buildCommand = ''
+              mkdir -p $out
+              # Copy all slides.html to $out and rename
+              ${lib.concatStringsSep "\n" (
+                map (
+                  slideName:
+                  let
+                    drv = makeSlidePackage slideName true {
+                      inherit
+                        stdenv
+                        presenterm
+                        kitty
+                        lib
+                        ;
+                    };
+                  in
+                  ''
+                    cp ${drv.html}/slides.html $out/${slideName}.html
+                  ''
+                ) slideNames
+              )}
+              # Generate index.html
+              cat > $out/index.html <<EOF
+              <html>
+              <body>
+              <h1>Slides Index</h1>
+              <ul>
+              ${lib.concatStringsSep "\n" (
+                map (slideName: "<li><a href=\"${slideName}.html\">${slideName}</a></li>") slideNames
+              )}
+              </ul>
+              </body>
+              </html>
+              EOF
+            '';
+          };
       in
       {
         rosDistros = [ ];
-        packages = allPackages;
+        packages = allPackages // {
+          slides-html = slidesHtml;
+        };
       }
     );
 }

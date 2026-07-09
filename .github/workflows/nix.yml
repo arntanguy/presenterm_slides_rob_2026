@@ -27,6 +27,13 @@ jobs:
           extraPullNames: "ros,gepetto"
       - run: nix flake check -L
       - run: nix build -L
+      - name: Build slides-html
+        run: nix build .#slides-html
+      - name: Upload build result
+        uses: actions/upload-artifact@v7
+        with:
+          name: slides-html
+          path: result
   check:
     if: always()
     name: check-macos-linux-nix
