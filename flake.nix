@@ -20,7 +20,10 @@
           stdenv.mkDerivation {
             name = slideName;
             version = "1.0.0";
-            outputs = [ "out" "html" ]; 
+            outputs = [
+              "out"
+              "html"
+            ];
             nativeBuildInputs = [
               presenterm
               kitty
