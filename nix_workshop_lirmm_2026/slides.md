@@ -18,13 +18,24 @@ Does it though?
   *  Will it tomorrow?
 * Do you know how it was installed?
   * `apt`, `snap`, `rpm`, from `source`...
-  * which `apt` repository though?
-    * `ubuntu`, `cutom ppa`, ...
-* Do you know what it depends on?
-  * system version installed through `apt`?
+* Do you know how its dependencies were installed?
+  * system version installed through `apt`, `snap`, `rpm`, from `source`...
+    * which `apt` repository though?
+      * official `ubuntu`, custom `ppa`, ...
   * another version on your system
     * maybe built from source?
+    * maybe you set `LD_LIBRARY_PATH`, `PYTHONPATH`, ... manually?
 * What if you want to upgrade your system?
+  * Everything is installed through apt, `ppa`s are in sync with ubuntu official, and ubuntu update does not break your system
+    * It's your lucky day!
+  * Dependencies from source, you're on your own, rebuild them at least
+    * It might work without, but that's undefined behaviour
+
+<!-- pause -->
+<!-- font_size: 2 -->
+>
+> System dependencies are great for end-user distribution, not so much for development
+>
 <!-- incremental_lists: false -->
 <!-- end_slide -->
 
@@ -32,13 +43,23 @@ Can you share it?
 ===
 <!-- incremental_lists: true -->
 ## Here is a link to a repository with my code 
-* and here is a `README.md` file
-* that might be up to date
-* well you don't really know why it works for you...
-* ... can you even write the `README.md`?
+* and here is a `README.md` file...
+* ...that might be up to date
+  * well you don't really know why it works for you...
+  * ... can you even write the `README.md`?
 ## What if you have more than one package?
 * share links to all of them
-* maybe you have a `README.md` to say in which order to build
+* maybe you have a `README.md` to say:
+  * in which order to build
+  * what tools are needed to build
+    * and how to install them
+  * where should the built files go?
+    * system-wide install from source? dangerous
+    * local install folder?
+       * that works, but you need to set `LD_LIBRARY_PATH`, `PYTHONPATH`, etc.
+       * does `source /opt/ros/<distro>/setup.bash` rings a bell?
+## What if I modify and reinstall package A? Do I need to build and install B and C?
+* It depends. Do your colleagues know?
 <!-- incremental_lists: false -->
 <!-- end_slide -->
 
@@ -54,30 +75,36 @@ Maybe it works.
 But it's painful.
 <!-- end_slide -->
 
-Maybe you tried to do things right
-==
-<!-- incremental_lists: true -->
-## You made `debian packages`
-* did you? congrats ! 
-* no really, they're painful to make.
-* People can do `sudo apt install your-awesome-code`
-<!-- new_lines: 2 -->
-## It's a library, other projects depend on it.
-* great, maybe that's enough
-* **BUT**:
-  * it only works on ubuntu
-  * `your-awesome-code` depends on other system packages
-    * do you know what `apt update` will do?
-      * hopefully it still works, everything is API/ABI compatible
-        * it should, but that's convention 
-        * if not - your robot it's on the floor, broken
-<!-- incremental_lists: false -->
+<!-- alignment: center -->
+<!-- jump_to_middle -->
+<!-- font_size: 4 -->
+And error prone.
 <!-- end_slide -->
 
-Now... 
-===
+Maybe you tried to do distribute your code
+==
+
+How though? debian packages, AppImage, snap, rpm, insert-your-tool.
+
 <!-- incremental_lists: true -->
-## Your colleague wants a different version 
+# Let's say you made `debian packages`
+* did you? congrats ! 
+  * no really, they're painful to make.
+* It's probably not on the official ubuntu repository
+  * People need to setup your `ppa`
+  * People can do `sudo apt install your-awesome-code`
+
+# Awesome, now everyone can use it!
+## Right?
+### Right?
+
+Yes if:
+* They are on one of the ubuntu versions your packaged for
+* They want the version you provide
+* They don't want to modify it.
+  * Don't they? It's research. That's what we do.
+
+# Your colleague wants a different version 
 * Make a new package?
   * Sure
   * But he also has projects that depend on the official version
@@ -86,17 +113,60 @@ Now...
   * It would work
   * But you now have to make sure your build system picks up the right dependency
   * manually
-<!-- incremental_lists: false -->
 <!-- end_slide -->
 
 
+<!-- alignment: center -->
+<!-- jump_to_middle -->
+<!-- font_size: 4 -->
+We need a better solution.
+<!-- end_slide -->
 
-Nix to the rescue 
+Existing Solutions for Reproducible Development
 ===
-Nix is a purely functional declarative package manager. 
+
+# There are many
+
+| Tool      | Language Support         | System Packages | Binary Caching | Declarative | Cross-Platform | C++/Python Bindings Support         | Learning Curve |
+|-----------|-------------------------|-----------------|---------------|-------------|---------------|-------------------------------------|---------------|
+| **Nix**   | Any         | Yes             | Yes           | Yes         | Yes           | Yes, handles all dependencies       | High          |
+| **Guix**  | Any         | Yes             | Yes           | Yes         | Yes           | Yes, handles all dependencies       | High          |
+| **Conan** | C/C++ (mainly)           | No              | Yes           | No          | Yes           | No direct Python support            | Medium        |
+| **vcpkg** | C/C++                    | No              | Yes           | No          | Yes           | No direct Python support            | Medium        |
+| **pip/uv**   | Python                   | No              | No            | No          | Yes           | Needs system deps pre-installed     | Low           |
+| **pixi**           | Python (+others)         | Yes (some)      | Yes           | Yes              | Yes           | Yes, via conda-forge recipes        | Low           | Fast, modern CLI, easy declarative config   |
+| **conda** | Python, R, etc.          | Yes (some)      | Yes           | Yes         | Yes           | Yes, manages C++ and Python deps    | Medium        |
+| **Spack** | HPC, C/C++, Fortran      | No              | Yes           | Yes         | Yes           | Yes, but not Python-centric         | High          |
+| **PID**   | C/C++ (mainly)           | Yes (or source) | Poor          | Somewhat (CMake) | No            | Yes, with manual setup              | Medium        |
+| **mc-rtc-superbuild** | C++, Python           | Yes (or source) | No   | Somewhat (CMake) | Yes           | Yes, handles both                   | Low           |
+
+# Why Choose Nix for Research?
+<!-- pause -->
+## Because it ticks all the boxes, with good developper experience
+
 <!-- incremental_lists: true -->
-- **Declarative**: specify your dependencies explicitely
-<!-- incremental_lists: false -->
+* **Language-agnostic:** Manage dependencies for any language (Python, C++, R, etc.) in a unified way.
+* **Reproducibility:** Environments are fully declarative and can be rebuilt exactly, ensuring results can be reproduced years later.
+* **Binary caching:** Share pre-built environments and speed up setup for collaborators and CI.
+* **Cross-platform:** Works on Linux and macOS, Windows through WSL.
+* **System integration:** Manage both system and user-level dependencies in the nix store.
+* **Collaboration:** Share exact environments with colleagues.
+* **Archival:** Archive the full environment alongside code for long-term research preservation.
+* **Devshells:** Easily create per-project development environments with custom tools, environment variables, and helper scripts.
+* **Flexibility:** Per-project dependencies, override existing packages, etc.
+
+> The learning curve is higher, but the long-term benefits for research projects outweigh the initial investment.
+> Nix is already used in industry and academia for reproducible science and software.
+
+
+<!-- end_slide -->
+
+But what is Nix?
+===
+
+<!-- jump_to_middle -->
+<!-- font_size: 4 -->
+Nix is a purely functional package manager
 <!-- end_slide -->
 
 Install Nix
@@ -134,7 +204,7 @@ If you don’t want this nix-setup-systemd apt package, other options include:
 
 Install Nix
 ===
-## Trust me? Let's do it.
+## Trust me? Let's install it.
 
 ```
 git clone https://github.com/arntanguy/presenterm_slides
@@ -142,7 +212,8 @@ cd presenterm_slides/nix_workshop_lirmm_2026
 ./install_nix_linux.sh
 ```
 
-## You should see this
+## Let's try 
+<!-- pause -->
 
 ```bash +exec
 kitty sh -c '
@@ -164,7 +235,7 @@ presenterm -x nix_workshop_lirmm_2026/slides.md
 
 How to use?
 
-- Type `12G` to go to this slide (or "n" 12 times)
+- Type `14G` to go to this slide (or "n" 14 times)
 - `n`: next slide
 - `p`: previous slide
 - `Ctrl + e` : execute code snippets (I promise, nothing dangerous, it'll be shown on the slides)
@@ -178,7 +249,9 @@ Well you just used `Nix`
 # What happened?
 
 - `nix develop` created a shell with all dependencies needed to run this presentation
-- This is defined in a derivation in `flake.nix`
+- It ran the default `devShell` output from `flake.nix` (more on that later)
+  - flakes are a standardized way to declare inputs and outputs executing nix code
+- The derivation (*"package"*) looks like:
 ```nix {3,4, 8, 12-15}
           {
             lib, stdenv,
@@ -295,9 +368,15 @@ Back to the slides?
 
 * You already know how to present them. Btw you can also do `nix run .#nix_workshop_lirmm_2026`
 * Want them as html?
+  * use the `.html` output from the derivation
 ```bash +exec
-echo "Building slides..."
+echo "---- Building slides... ----"
 nix build .#nix_workshop_lirmm_2026.html --print-out-paths
+
+echo "---- we generated ./result-html -----"
+ls ./result-html
+
+echo "---- displaying in chromium ----"
 echo "This might take a while, installing chromium..."
 # want to see them, don't have a web browser?
 nix run nixpkgs#chromium ./result-html/slides.html
@@ -328,14 +407,86 @@ Examples:
 You can fool around with nix language. See https://nix.dev/tutorials/nix-language for a quick walk-through.
 <!-- end_slide -->
 
+Important data structures
+===
+
+Almost everything in nix packaging is an attribute set, derivations, flakes, etc...
+
+# Attribute Sets
+
+<!-- column_layout: [2, 2] -->
+<!-- column: 0 -->
+## JSON
+<!-- new_lines: 2 -->
+```json
+{
+  "string": "hello",
+  "integer": 1,
+  "float": 3.141,
+  "bool": true,
+  "null": null,
+  "list": [1, "two", false],
+  "object": {
+    "a": "hello",
+    "b": 1,
+    "c": 2.718,
+    "d": false
+  }
+}
+```
+
+<!-- column: 1 -->
+## Nix
+It looks like JSON but you can do
+
+```nix
+let
+  myAttrs = {
+    string = "hello";
+    integer = 1;
+    float = 3.141;
+    bool = true;
+    null = null;
+    list = [ 1 "two" false ];
+    attribute-set = {
+      a = "hello";
+      b = 2;
+      c = 2.718;
+      d = false;
+    };
+  };
+in
+{
+  # Access a value
+  greeting = myAttrs.string;
+
+  # Access a nested attribute
+  nestedValue = myAttrs.attribute-set.a;
+
+  # Add a new attribute
+  extended = myAttrs // { newAttr = "added!"; };
+
+  # Update an existing attribute
+  updated = myAttrs // { integer = 42; };
+
+  # Get a value with a default if missing
+  maybeValue = myAttrs ? missingAttr
+    then myAttrs.missingAttr
+    else "default";
+}
+```
+
+<!-- end_slide -->
+
 Packaging basics
 ===
 
-Let's create our first derivation!
+# Hello, World!
+## Let's create our first derivation!
 
-<!-- column_layout: [3, 2] -->
+<!-- column_layout: [2, 2] -->
 <!-- column: 0 -->
-```bash +exec
+```bash +exec {2-13}
 nix-build - <<'EOF'
 { lib, stdenv, fetchurl }:
 stdenv.mkDerivation rec {
@@ -352,14 +503,16 @@ stdenv.mkDerivation rec {
 EOF
 ```
 <!-- column: 1 -->
-* Problem: the expression in is a function, which only produces its intended output if it is passed the correct arguments.
+# Problem
+
+The expression in is a function, which only produces its intended output if it is passed the correct arguments.
 ```nix
 { lib, stdenv, fetchurl }:
 ```
 
-* Where do they come from?
-  * Right now nowhere
-  * But they are packages from `nixpkgs`
+# Where do they come from?
+* Right now nowhere
+* But they are packages from `nixpkgs`
 
 * Let's see how to use it.
 
@@ -368,9 +521,9 @@ EOF
 Building your first derivation
 ===
 
-<!-- column_layout: [3, 2] -->
+<!-- column_layout: [2, 2] -->
 <!-- column: 0 -->
-```bash +exec
+```bash +exec {3,4,7}
 nix-build - <<'EOF'
 let
   nixpkgs = fetchTarball "https://github.com/NixOS/nixpkgs/tarball/nixos-26.05";
@@ -382,6 +535,7 @@ in
 EOF
 ```
 <!-- column: 1 -->
+# Explanation
 * `callPackage` automatically passes attributes from `pkgs` to the given function, if they match attributes required by that function’s argument attribute set. 
   * In this case, `callPackage` will supply `stdenv` and `fetchzip` to the function defined in `hello.nix`.
 ```nix {1, 5-8}
@@ -398,6 +552,14 @@ stdenv.mkDerivation rec {
   };
 }
 ```
+
+# Important concepts
+
+* We depend on a **specific version** of `nixpkgs`
+  * that defines how to build and install a **specific version** of over 140.000 derivations
+* Everything is nix code
+* Every derivation is installed into the Nix store
+
 <!-- end_slide -->
 
 Let's build a shell script, with parameters
@@ -405,7 +567,7 @@ Let's build a shell script, with parameters
 
 <!-- column_layout: [3, 2] -->
 <!-- column: 0 -->
-```bash +exec
+```bash +exec {2-16}
 nix-build - <<'EOF'
 let
   pkgs = import <nixpkgs> { };  # shorthand for fetching nixpkgs
@@ -433,12 +595,11 @@ EOF
 ls -lR ./result/bin/hello
 ```
 
-* It's a shell script
+* It's a reproducible shell script:
+  * `writeShellScriptBin` inserts/replaces the shebang with the version of bash used by the derivation 
 ```bash +exec_replace
 cat ./result/bin/hello
 ```
-
-* And even bash is reproducible ;)
 
 * You can call it with `./result/bin/hello`
 
@@ -478,7 +639,8 @@ EOF
 <!-- column: 1 -->
 * `${...}` is the syntax to evaluate nix expression in strings
   * Here `${cowsay}` evaluates the cowsay derivation from nixpkgs
-  * Note that it will build it if necessary.
+    * Note that it will build it if necessary.
+    * Note that it gets downloaded from a (nixpkgs') binary cache if available. 
 * After nix has replaced all variables, the remainder are left as-is, so bash can use them
 * `$var` would be a bash variable in this context
 
@@ -583,7 +745,23 @@ nix run nixpkgs#nurl https://github.com/jrl-umi3218/SpaceVecAlg v1.2.10
 ```
 
 <!-- column: 1 -->
-# Solution
+# TODO
+
+* First look into `default.nix`
+* Edit the file `exercices/spacevecalg-nopython.nix`
+* Build with `nix-build -A spacevecalg-nopython`
+* Test the solution with `nix-build -A spacevecalg-nopython-solution`
+
+```bash +exec
+cd pkgs
+nix-build -A spacevecalg-nopython-solution
+ls -R ./result/* | less
+```
+<!-- end_slide -->
+
+
+Solution
+===
 <!-- pause -->
 
 ```nix

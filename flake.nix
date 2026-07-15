@@ -103,10 +103,28 @@
               </html>
               EOF
             '';
+
+            shellHook = ''
+              echo "-------"
+              echo "To use the slides, run:"
+              echo "$ presenterm -x <folder>/slides.md"
+              echo ""
+              run_kitty_() {
+                kitty sh -c "presenterm \"$@\""
+              }
+              export -f run_kitty
+              echo "Note: some terminals do not have the full feature set needed by presenterm. For best result, use 'kitty' as:"
+              echo "$ run_kitty -x <folder>/slides.md"
+              echo ""
+              echo "Note: run_kitty is an alias for:"
+              declare -f run_kitty
+              echo ""
+              echo "Use: Ctrl +/- to increase/decrease font size"
+              echo "-------"
+            '';
           };
       in
       {
-        rosDistros = [ ];
         packages = allPackages // {
           slides-html = slidesHtml;
         };
