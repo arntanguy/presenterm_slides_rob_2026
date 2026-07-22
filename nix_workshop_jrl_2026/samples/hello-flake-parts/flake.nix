@@ -4,35 +4,20 @@
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs =
-    {
-      self,
-      nixpkgs,
-      flake-utils,
-    }:
-    flake-utils.lib.eachDefaultSystem (
-      system:
-      let
-        pkgs = nixpkgs.legacyPackages.${system};
-      in
-      {
+  outputs = { self, nixpkgs, flake-utils }:
+    flake-utils.lib.eachDefaultSystem (system:
+      let pkgs = nixpkgs.legacyPackages.${system};
+      in {
         # nix build .#hello
         packages.hello = pkgs.hello;
-        packages.cowsay = pkgs.cowsay;
 
         # nix build
         defaultPackage = self.packages.${system}.hello;
 
         # nix develop .#hello or nix shell .#hello
-        devShells.hello = pkgs.mkShell {
-          buildInputs = [
-            pkgs.hello
-            pkgs.cowsay
-          ];
-        };
-
+        devShells.hello = pkgs.mkShell { buildInputs = [ pkgs.hello pkgs.cowsay ]; };
+        
         # nix develop or nix shell
         devShell = self.devShells.${system}.hello;
-      }
-    );
+      });
 }
