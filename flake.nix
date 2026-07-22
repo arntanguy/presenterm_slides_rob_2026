@@ -49,6 +49,7 @@
         slideNames = [
           "journee_departement_rob_2026"
           "nix_workshop_lirmm_2026"
+          "nix_workshop_jrl_2026"
         ];
 
         makeBothPackages = slideName: {

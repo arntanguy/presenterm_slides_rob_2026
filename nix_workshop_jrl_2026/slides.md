@@ -433,7 +433,10 @@ kitty --directory ~/nix-envs
 <!-- alignment: center -->
 <!-- jump_to_middle -->
 <!-- font_size: 4 -->
-Next up: how does it work?
+Need a break?
+===
+<!-- font_size: 1 -->
+# Upcoming: Nix language, packaging derivations 
 <!-- end_slide -->
 
 
@@ -473,6 +476,881 @@ Concepts
 - Defines outputs : `nix run <flake url>#<flake output>`
 
 <!-- end_slide -->
+
+Install Nix (optional)
+===
+
+# If you wish to follow along, you can install Nix.
+## Prerequisites
+
+- Ubuntu >= 24.04
+- ~10Gb free disk space
+
+[Install Instructions](https://mc-rtc.github.io/nixpkgs/#setup-nix)
+
+## Or docker (but gui apps most likely won't work)
+
+<!-- end_slide -->
+
+Try it
+===
+
+# Run 
+
+```bash
+nix run nixpkgs#fortune | nix run nixpkgs#ponysay
+```
+
+
+```bash +exec
+kitty sh -c '
+  nix run nixpkgs#fortune | nix run nixpkgs#ponysay
+  read -n 1 -s -r -p "Press any key to continue..."
+'
+```
+<!-- end_slide -->
+
+
+Nix is a functional programming language
+===
+
+# Let's try it
+
+<!-- column_layout: [3, 2] -->
+<!-- column: 0 -->
+Use
+```bash
+nix repl
+```
+
+Examples:
+
+```
+# everything used is evaluated
+1+2 # -> 3
+
+# let bindings - define values to use in an expression
+let x = 1; in x + 2 # -> 3
+
+# curried functions
+let add = a: b: a + b; in add 1 2 # -> 3
+
+# attribute sets:
+let attr = { a.b.c = 2; }; in attr.a.b # -> { c = 2; }
+
+# list concatenation
+[1 2] ++ [3 4] # -> [1 2 3 4]
+
+# attribute set concatenation
+{ a = 1; } // { b = 2; } # -> { a = 1; b = 2; }
+```
+
+You can fool around with nix language. See https://nix.dev/tutorials/nix-language for a quick walk-through.
+
+<!-- column: 1 -->
+
+```bash +exec
+kitty sh -c '
+  nix repl
+'
+```
+<!-- end_slide -->
+
+Important data structures
+===
+
+Almost everything in nix packaging is an attribute set, derivations, flakes, etc...
+
+# Attribute Sets
+
+<!-- column_layout: [2, 2] -->
+<!-- column: 0 -->
+## JSON
+<!-- new_lines: 2 -->
+```json
+{
+  "string": "hello",
+  "integer": 1,
+  "float": 3.141,
+  "bool": true,
+  "null": null,
+  "list": [1, "two", false],
+  "object": {
+    "a": "hello",
+    "b": 1,
+    "c": 2.718,
+    "d": false
+  }
+}
+```
+
+<!-- column: 1 -->
+## Nix
+It looks like JSON but you can do
+
+```nix
+let
+  myAttrs = {
+    string = "hello";
+    integer = 1;
+    float = 3.141;
+    bool = true;
+    null = null;
+    list = [ 1 "two" false ];
+    attribute-set = {
+      a = "hello";
+      b = 2;
+      c = 2.718;
+      d = false;
+    };
+  };
+in
+{
+  # Access a value
+  greeting = myAttrs.string;
+
+  # Access a nested attribute
+  nestedValue = myAttrs.attribute-set.a;
+
+  # Add a new attribute
+  extended = myAttrs // { newAttr = "added!"; };
+
+  # Update an existing attribute
+  updated = myAttrs // { integer = 42; };
+
+  # Get a value with a default if missing
+  maybeValue = myAttrs ? missingAttr
+    then myAttrs.missingAttr
+    else "default";
+}
+```
+
+<!-- end_slide -->
+
+Anatomy of a derivation
+===
+<!-- column_layout: [3, 2] -->
+<!-- column: 0 -->
+```nix
+# INPUTS
+{
+  stdenv, # standard build environment (compilers, etc)
+  lib, # helper functions 
+  ... # dependencies
+}:
+# OUTPUT
+stdenv.mkDerivation # mkDerivation is a function taking the following attribute set
+# Output attribute set
+{
+  pname = "hello"; 
+  version = "1.0.0";
+  outputs = [ "out" "doc" ]; # can install files in these outputs (in the nix store)
+  buildInputs = [ ]; # dependencies needed for building
+  nativeBuildInputs = [ ]; # dependencies needed for building and in shells
+  propagatedBuildInputs = [ ]; # dependencies needed at build or runtime or by other packages
+
+  src = lib.cleanSource ./.; # all source files
+
+  # Build hooks
+  # buildPhase, preBuildPhase, postBuildPhase,
+  # installPhase, preInstallPhase, postInstallPhase, 
+  # checkPhase, preCheckPhase, postCheckPhase, 
+  # fixupPhase, preFixupPhase, postFixupPhase, 
+  # patchPhase, prePatchPhase, postPatchPhase, 
+  # unpackPhase, preUnpackPhase, postUnpackPhase,
+  # configurePhase, preConfigurePhase, postConfigurePhase
+
+  # metadata
+  meta = with lib; {
+    license = licenses.gpl3Plus;
+    mainProgram = "run-slides";
+  };
+}
+```
+
+<!-- pause -->
+<!-- column: 1 -->
+
+# A derivation is a function with
+
+## An input attribute set
+
+* can contain any valid nix expression
+  * usually it's other derivations (dependencies)
+  * and options
+
+## An output attribute set
+
+* standardized format of what a derivation can do
+  * package name, version, metadata
+  * build inputs
+  * hooks that define how to generate the output ("build your package")
+
+## In-between mkDerivation
+
+* is a function that:
+  * takes the input and the desired output attribute sets
+  * sets up the build environment
+  * run the build hooks
+
+
+<!-- end_slide -->
+
+
+That's a lot of build hooks
+===
+
+# Not to worry, nix has sensible defaults
+## Want to build a `cmake` project?
+* Add
+
+```
+nativeBuildInputs = [ cmake ];
+```
+
+* Nix will run cmake hooks for you for configuring, building and installing a cmake project
+
+<!-- end_slide -->
+
+
+<!-- end_slide -->
+
+Packaging basics
+===
+
+Let's start simple with pure Nix, no flakes.
+
+Use `nix-build` to build a nix expression.
+
+# Let's create our first derivation!
+## Hello, World!
+
+<!-- column_layout: [2, 2] -->
+<!-- column: 0 -->
+```bash +exec {2-13}
+nix-build - <<'EOF'
+{ lib, stdenv, fetchurl }:
+stdenv.mkDerivation rec {
+  pname = "hello";
+  version = "2.12";
+  src = fetchurl {
+    url = "mirror://gnu/${pname}/${pname}-${version}.tar.gz";
+    sha256 = "1ayhp9v4m4rdhjmnl2bq3cibrbqqkgjbl3s7yk2nhlh8vj3ay16g";
+  };
+  meta = with lib; {
+    license = licenses.gpl3Plus;
+  };
+}
+EOF
+```
+<!-- column: 1 -->
+# Problem
+
+The expression in is a function, which only produces its intended output if it is passed the correct arguments.
+```nix
+{ lib, stdenv, fetchurl }:
+```
+
+# Where do they come from?
+* Right now nowhere
+* But they are packages from `nixpkgs`
+
+* Let's see how to use it.
+
+<!-- end_slide -->
+
+Building your first derivation
+===
+
+<!-- column_layout: [2, 2] -->
+<!-- column: 0 -->
+```bash +exec {3,4,7}
+nix-build - <<'EOF'
+let
+  nixpkgs = fetchTarball "https://github.com/NixOS/nixpkgs/tarball/nixos-26.05";
+  pkgs = import nixpkgs { config = {}; overlays = []; };
+in
+{
+  hello = pkgs.callPackage ./pkgs/hello.nix { };
+}
+EOF
+```
+<!-- column: 1 -->
+# Explanation
+* `callPackage` automatically passes attributes from `pkgs` to the given function, if they match attributes required by that function’s argument attribute set. 
+  * In this case, `callPackage` will supply `stdenv` and `fetchzip` to the function defined in `hello.nix`.
+```nix {3, 7-10}
+# hello.nix
+
+{ lib, stdenv, fetchurl }:
+stdenv.mkDerivation rec {
+  pname = "hello";
+  version = "2.12";
+  src = fetchurl {
+    url = "mirror://gnu/${pname}/${pname}-${version}.tar.gz";
+    sha256 = "1ayhp9v4m4rdhjmnl2bq3cibrbqqkgjbl3s7yk2nhlh8vj3ay16g";
+  };
+  meta = with lib; {
+    license = licenses.gpl3Plus;
+  };
+}
+```
+
+# Important concepts
+
+* We depend on a **specific version** of `nixpkgs`
+  * that defines how to build and install a **specific version** of over 160.000 derivations
+* Everything is nix code
+* Every derivation is installed into the Nix store
+
+<!-- end_slide -->
+
+Let's build a shell script, with parameters
+===
+
+<!-- column_layout: [3, 2] -->
+<!-- column: 0 -->
+```bash +exec {2-16}
+nix-build - <<'EOF'
+let  
+  # shorthand for fetching a default version of nixpkgs
+  # this is defined in Nix configuration
+  pkgs = import <nixpkgs> { };
+  hello-drv = 
+    {
+      writeShellScriptBin,
+      audience ? "world",
+    }:
+    writeShellScriptBin "hello" ''
+      echo "Hello, ${audience}!"
+    ''
+  ;
+in
+{
+  hello = pkgs.callPackage hello-drv { audience = "LIRMM"; };
+}
+EOF
+```
+
+<!-- pause -->
+<!-- column: 1 -->
+
+* This generated a symbolic link `$(pwd)/result`
+
+```bash +exec
+ls -l $(pwd)/result
+```
+
+<!-- pause -->
+* Containing the script ./result
+```bash +exec_replace
+ls -lR ./result/*
+```
+
+<!-- pause -->
+
+* It's a reproducible shell script:
+  * `writeShellScriptBin` inserts/replaces the shebang with the version of bash used by the derivation 
+```bash +exec_replace
+cat ./result/bin/hello
+```
+
+<!-- pause -->
+
+* You can call it with `./result/bin/hello`
+
+```bash +exec
+./result/bin/hello
+```
+
+<!-- end_slide -->
+
+Add a depencency
+===
+
+<!-- column_layout: [3, 2] -->
+<!-- column: 0 -->
+```bash +exec {7, 11}
+nix-build - <<'EOF'
+let
+  pkgs = import <nixpkgs> { };  # shorthand for fetching nixpkgs
+  hello-drv = 
+    {
+      writeShellScriptBin,
+      cowsay,
+      audience ? "world",
+    }:
+    writeShellScriptBin "hello" ''
+      ${cowsay}/bin/cowsay "Hello, ${audience}!"
+    ''
+  ;
+in
+{
+  hello = pkgs.callPackage hello-drv { audience = "LIRMM"; };
+}
+EOF
+./result/bin/hello
+```
+
+<!-- pause -->
+<!-- column: 1 -->
+* `${...}` is the syntax to evaluate nix expression in strings
+  * Here `${cowsay}` evaluates the cowsay derivation from nixpkgs
+    * Note that it will build it if necessary.
+    * Note that it gets downloaded from a (nixpkgs') binary cache if available. 
+* After nix has replaced all variables, the remainder are left as-is, so bash can use them
+* `$var` would be a bash variable in this context
+
+```bash +exec {6-8}
+nix-build - <<'EOF'
+let
+  pkgs = import <nixpkgs> { };
+  hello-drv = { writeShellScriptBin, cowsay, audience ? "world", }:
+    writeShellScriptBin "hello" ''
+      var="$(pwd)"
+      cowsay="Meuuuh!"
+      ${cowsay}/bin/cowsay "Hello, ${audience}! We are in $var directory. $cowsay"
+    '';
+in { hello = pkgs.callPackage hello-drv { audience = "LIRMM"; }; }
+EOF
+./result/bin/hello
+```
+
+
+<!-- end_slide -->
+
+
+Let's package SpaceVecAlg together
+===
+
+
+<!-- column_layout: [3, 2] -->
+<!-- column: 0 -->
+
+# SpaceVecAlg is a library for spatial vector algebra, used in robotics.
+* It has a C++ API 
+* and Python bindings.
+* Project: https://github.com/jrl-umi3218/SpaceVecAlg
+
+## Let's start with C++ dependencies:
+
+* cmake, pkg-config, jrl-cmakemodules
+* Eigen3
+* Boost
+
+We need to disable:
+- Doxygen documentation `-DINSTALL_DOCUMENTATION=OFF`
+- Cython bindings `-DPYTHON_BINDING=OFF`
+
+Tips:
+* You can get the input hash with
+```bash +exec
+echo "This will take a few seconds, it needs to download it first..."
+nix run nixpkgs#nurl https://github.com/jrl-umi3218/SpaceVecAlg v1.2.10
+```
+
+<!-- column: 1 -->
+# TODO
+
+* First look into `default.nix`
+* Edit the file `exercices/spacevecalg-nopython.nix`
+* Build with `nix-build -A spacevecalg-nopython`
+* Test the solution with `nix-build -A spacevecalg-nopython-solution`
+
+```bash +exec
+cd pkgs
+nix-build -A spacevecalg-nopython-solution
+ls -R ./result/* | less
+cd ..
+```
+<!-- end_slide -->
+
+
+Solution
+===
+<!-- pause -->
+
+```nix
+{
+  stdenv, lib,
+  cmake, pkg-config, jrl-cmakemodules,
+  eigen, boost,
+  fetchFromGitHub,
+}:
+stdenv.mkDerivation {
+  pname = "spacevecalg"; version = "1.2.10";
+
+  src = fetchFromGitHub {
+    owner = "jrl-umi3218"; repo = "SpaceVecAlg"; tag = "v1.2.10";
+    hash = "sha256-fTKKj3m8cO4F46LlO7r8JeuWLhlyRcX7EblHroDYFkQ=";
+  };
+
+  buildInputs = [ jrl-cmakemodules ];
+  nativeBuildInputs = [ cmake pkg-config ];
+  propagatedBuildInputs = [ eigen boost ];
+
+  cmakeFlags = [
+    (lib.cmakeBool "PYTHON_BINDING" false)
+    (lib.cmakeBool "INSTALL_DOCUMENTATION" false)
+  ];
+
+  meta = with lib; {
+    description = "Spatial Vector Algebra with the Eigen library";
+    homepage = "https://github.com/jrl-umi3218/SpaceVecAlg";
+    license = licenses.bsd2;
+    platforms = platforms.all;
+  };
+}
+```
+<!-- end_slide -->
+
+Let's add python and documentation
+===
+
+
+<!-- column_layout: [3, 2] -->
+<!-- column: 0 -->
+You need:
+* doxygen
+* python3Packages
+  * numpy
+  * eigen3-to-python
+
+# Solution
+<!-- pause -->
+
+```nix {5-7,9-11}
+{
+  stdenv, lib,  fetchFromGitHub,
+  cmake, pkg-config, jrl-cmakemodules,
+  eigen, boost,
+  doxygen,
+  python3Packages,
+  with-python ? true,
+}:
+let 
+  use-python = with-python && !stdenv.hostPlatform.isDarwin;
+in
+```
+
+<!-- pause -->
+
+<!-- column: 1 -->
+```nix {1,10,11-12,14-15,18}
+stdenv.mkDerivation {
+  pname = "spacevecalg"; version = "1.2.10";
+  src = fetchFromGitHub {
+    owner = "jrl-umi3218"; repo = "SpaceVecAlg"; tag = "v1.2.10";
+    hash = "sha256-fTKKj3m8cO4F46LlO7r8JeuWLhlyRcX7EblHroDYFkQ=";
+  };
+
+  buildInputs = [ jrl-cmakemodules ];
+  nativeBuildInputs = [ cmake pkg-config ]
+  ++ [ doxygen ]
+  ++ lib.optionals use-python
+     (with python3Packages; [ cython python distutils pytest ]);
+  propagatedBuildInputs = [ eigen boost ]
+  ++ lib.optionals use-python
+     [ python3Packages.numpy python3Packages.eigen3-to-python ];
+
+  cmakeFlags = [
+    (lib.cmakeBool "PYTHON_BINDING" use-python)
+  ];
+  doCheck = true;
+  meta = with lib; {
+    description = "Spatial Vector Algebra with the Eigen library";
+    homepage = "https://github.com/jrl-umi3218/SpaceVecAlg";
+    license = licenses.bsd2;
+    platforms = platforms.all;
+  };
+}
+```
+<!-- end_slide -->
+
+
+<!-- alignment: center -->
+<!-- jump_to_middle -->
+<!-- font_size: 4 -->
+Need a break?
+===
+<!-- font_size: 1 -->
+# Upcoming: flakes, circular packaging or how to use it in practice
+<!-- end_slide -->
+
+
+Nix flakes
+===
+
+<!-- column_layout: [3, 2] -->
+<!-- column: 0 -->
+# A modular way of interacting with nix code
+
+We have already been using them:
+- nix run `<flake_url>#<flake_output>`
+- nix build
+- nix develop
+- nix shell
+
+
+```nix
+{
+  inputs = {
+    nixpkgs.url = "github:nixos/nixpkgs";
+    flake-utils.url = "github:numtide/flake-utils";
+  };
+
+  outputs = { self, nixpkgs, flake-utils }:
+    flake-utils.lib.eachDefaultSystem (system:
+      let pkgs = nixpkgs.legacyPackages.${system};
+      in {
+        # nix build .#hello
+        packages.hello = pkgs.hello;
+
+        # nix build
+        defaultPackage = self.packages.${system}.hello;
+
+        # nix develop .#hello or nix shell .#hello
+        devShells.hello = pkgs.mkShell { buildInputs = [ pkgs.hello pkgs.cowsay ]; };
+        
+        # nix develop or nix shell
+        devShell = self.devShells.${system}.hello;
+      });
+}
+```
+
+<!-- column: 1 -->
+
+# Structure is standardized
+
+## Inputs are locked
+
+* The first time you use the flake it records all inputs in a `flake.lock` file
+
+```bash +exec
+cd samples/hello-flake
+nix run .#hello
+```
+
+* Subsequent run will use the exact same inputs.
+* You can commit your `flake.lock`
+  * Everyone uses this version
+
+## Ouputs are whatever you wish
+
+* Try `nix flake show`:
+  * Outputs are listed by platform/name
+* Try `nix develop`:
+  * Run `hello`
+  * Note that all the dependencies to build hello are there
+* Try `nix shell`
+  * Run `hello`
+* Let's explore:
+  * Run `nix repl`
+    * `:lf .`
+<!-- end_slide -->
+
+# Why is it nice?
+
+# Try
+
+```bash
+nix flake show github:rolkneematics/panda_prosthesis
+```
+
+## Ok, it has a bunch of devShells
+
+```
+├───devShells
+│   └───x86_64-linux
+│       ├───default: development environment 'flakoboros-default-devShell'
+│       ├───panda-prosthesis-full: development environment 'panda-prosthesis-full'
+│       ├───panda-prosthesis-full-devel: development environment 'panda-prosthesis-full-devel'
+│       ├───panda-prosthesis-minimal: development environment 'panda-prosthesis-minimal'
+│       └───panda-prosthesis-minimal-devel: development environment 'panda-prosthesis-minimal-devel'
+```
+
+## Let's try
+
+<!-- column_layout: [3, 2] -->
+<!-- column: 0 -->
+
+### Enter a development shell
+
+```bash +exec
+kitty sh -c '
+  nix develop github:rolkneematics/panda_prosthesis#panda-prosthesis-minimal
+'
+```
+
+### Use
+
+```
+(mc-rtc-magnum &) # run a visualizer in the background
+mc_rtc_ticker # run open-loop control
+```
+
+
+<!-- column: 1 -->
+This will download:
+* the ANR Rolkneematics panda_prosthesis controller
+  * mc-rtc framework
+  * and its dependencies: Panda robot
+  * additional tools (visualizer, etc)
+
+<!-- end_slide -->
+
+Exploring the dependency tree
+===
+
+# Nix knows it, let's exploit it
+
+## Get the relevant store path to the controller
+
+```bash +exec
+nix build github:rolkneematics/panda_prosthesis#panda-prosthesis --print-out-paths
+```
+
+## Let's explore
+<!-- pause -->
+
+Use:
+- Left/Right arrows to navigate
+- `w` to see why we depend on a package
+
+```bash +exec
+out_path=$(nix build github:rolkneematics/panda_prosthesis#panda-prosthesis --print-out-paths)
+kitty sh -c "nix run nixpkgs#nix-tree -- $out_path"
+```
+<!-- end_slide -->
+
+Let's try another controller: polytopeController 
+===
+
+## Inspect: nix flake show github:Hugo-L3174/polytopeController/pull/2/head
+
+## Run:
+### well actually you cannot, private repositories...
+
+```bash +exec
+kitty sh -c '
+echo $(pwd)
+nix develop github:Hugo-L3174/polytopeController/pull/2/head
+'
+```
+
+<!-- pause -->
+
+<!-- column_layout: [3, 2] -->
+<!-- column: 0 -->
+### What's required? 
+
+This flake changes multiple inputs:
+
+* /nix/store/lrvxjf4a10i7xz5yi25prbjc5b59zrpx-mc-rtc-hugo-2.15.0 (105.64 MiB)
+* /nix/store/843b8lxw5n5kn6yk6qdvi5v9hwbmv9w3-politopix-1.0.0 (1.76 MiB)
+* /nix/store/hfymxc7zbm7xl9g37m6jp4fsdiaac7rx-mc-force-shoe-plugin-2.0.0 (2.52 MiB)
+* /nix/store/152k3k231y1n075b9a5cx8j0p3rknkzn-tvm-0.9.2 (3.51 MiB)
+* /nix/store/i3c8f3psxmbqpi6mhlw5pwg2nisgx06h-tasks-lssol-v1.8.4 (3.49 MiB)
+* /nix/store/kcbvnd7f95sg7a942r8daycfmcwka82y-polytopeController-1.0.0 (1.99 MiB)
+* /nix/store/3j9fnix8m0czrs6nfmb96xlg9yvnhmg9-dcm-vrptask-0.1.0 (3.18 MiB)
+* /nix/store/1qv15vwh65b4a9jac7yzbg4sgi3xkgm1-gram-savitzky-golay-1.0.1 (70.90 KiB)
+* /nix/store/rm5jk4h97mh6jkpr4nhhgp9lgbwnfcqa-eigen-lssol-0.0.0 (519.91 KiB)
+* /nix/store/sid3ibs5fcrkd081n45x5zs7wq0s3jkf-mc-dynamic-polytopes-1.0.1 (1.35 MiB)
+
+
+
+<!-- column: 1 -->
+### Let's explore
+<!-- pause -->
+
+```bash +exec
+out_path=$(nix build github:Hugo-L3174/polytopeController/pull/2/head#polytopeController --print-out-paths)
+kitty sh -c "nix run nixpkgs#nix-tree -- $out_path"
+```
+<!-- end_slide -->
+
+Quick peak inside the flake
+===
+
+<!-- column_layout: [1, 1] -->
+<!-- column: 0 -->
+```nix
+{
+# Override all dependencies
+inputs = {
+  mc-rtc-nix.url = "github:mc-rtc/nixpkgs";
+  flake-parts.follows = "mc-rtc-nix/flake-parts";
+  systems.follows = "mc-rtc-nix/systems";
+
+  # or use pull/N/merge to get the version merged with master, assuming there are no conflicts
+
+  mc-state-observation.url = "github:jrl-umi3218/mc_state_observation/pull/57/head";
+  mc-state-observation.flake = false;
+
+  dcm-vrptask.url = "github:Hugo-L3174/DCM_VRPTask/pull/1/head";
+  dcm-vrptask.flake = false;
+
+  mc-dynamic-polytopes.url = "github:Hugo-L3174/mc_dynamic_polytopes/pull/6/head";
+  mc-dynamic-polytopes.flake = false;
+
+  mc-force-shoe-plugin.url = "github:Hugo-L3174/mc_force_shoe_plugin/pull/16/head";
+
+  mc-rtc.url = "github:jrl-umi3218/mc_rtc/pull/507/head";
+};
+}
+```
+
+<!-- column: 1 -->
+```nix
+{
+flakoboros.overrideAttrs = 
+  {
+    polytopeController = { src = lib.cleanSource ./.; };
+    mc-force-shoe-plugin = { src = inputs.mc-force-shoe-plugin; };
+    mc-state-observation = { src = inputs.mc-state-observation; };
+    dcm-vrptask = { src = inputs.dcm-vrptask; };
+    mc-dynamic-polytopes = { src = inputs.mc-dynamic-polytopes; };
+    mc-rtc = {
+        pname = "mc-rtc-hugo";
+        src = inputs.mc-rtc;
+    };
+
+    politopix = { ... }:
+    {
+      src =
+        builtins.trace "politopix is currently a private repository, ask I2S Bordeaux to make it public"
+        (
+          builtins.fetchGit {
+            url = "git@github.com:Hugo-L3174/politopix";
+            rev = "f625b42de4404eea16aabcf720f2cee19dfdc406";
+          }
+        );
+    };
+    # ...
+};
+}
+```
+
+<!-- end_slide -->
+
+
+
+Cleanup
+===
+
+* We've put a lot of things in `/nix/store`.
+  * If you no longer want them, nix has a garbage collector
+    * This will remove all files from `/nix/store` not currently in use.
+
+```
+nix-collect-garbage
+```
+
+
+* `mc-rtc` generated a few cached convex hull files, you can remove `~/.local/share/mc_rtc`
+
+<!-- end_slide -->
+
 
 # Les dérivation c'est simple
 
